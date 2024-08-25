@@ -9,24 +9,26 @@ require "aws-sdk-kms"
 require "sorbet-runtime"
 require "google/apis/drive_v3"
 require "googleauth"
+require_relative "google_token"
+require_relative "helpers"
 
-class GoogleDriveApp < Sinatra::Base
+class App < Sinatra::Base
   extend T::Sig
 
-  BASE_URL = T.let(ENV["BASE_URL"] || raise("Missing BASE_URL"), String)
+  BASE_URL = T.let(Helpers.require_env("BASE_URL"), String)
   ORIGIN_REDIRECT_URI = "https://chatgpt.com/aip/g-some_gpt_id/oauth/callback"
-  ORIGIN_CLIENT_ID = T.let(ENV["ORIGIN_CLIENT_ID"] || raise("Missing ORIGIN_CLIENT_ID"), String)
-  ORIGIN_CLIENT_SECRET = T.let(ENV["ORIGIN_CLIENT_SECRET"] || raise("Missing ORIGIN_CLIENT_SECRET"), String)
+  ORIGIN_CLIENT_ID = T.let(Helpers.require_env("ORIGIN_CLIENT_ID"), String)
+  ORIGIN_CLIENT_SECRET = T.let(Helpers.require_env("ORIGIN_CLIENT_SECRET"), String)
   GATEWAY_REDIRECT_URI = T.let("#{BASE_URL}/oauth2/callback", String)
-  GOOGLE_CLIENT_ID = T.let(ENV["GOOGLE_CLIENT_ID"] || raise("Missing GOOGLE_CLIENT_ID"), String)
-  GOOGLE_CLIENT_SECRET = T.let(ENV["GOOGLE_CLIENT_SECRET"] || raise("Missing GOOGLE_CLIENT_SECRET"), String)
+  GOOGLE_CLIENT_ID = T.let(Helpers.require_env("GOOGLE_CLIENT_ID"), String)
+  GOOGLE_CLIENT_SECRET = T.let(Helpers.require_env("GOOGLE_CLIENT_SECRET"), String)
   GOOGLE_OAUTH_SITE = "https://accounts.google.com"
   GOOGLE_TOKEN_URL = "/o/oauth2/token"
   GOOGLE_AUTHORIZE_URL = "/o/oauth2/auth"
-  AWS_REGION = T.let(ENV["AWS_REGION"] || "eu-west1-1", String)
-  AWS_ACCESS_KEY_ID = T.let(ENV["AWS_ACCESS_KEY_ID"] || raise("Missing AWS_ACCESS_KEY_ID"), String)
-  AWS_SECRET_ACCESS_KEY = T.let(ENV["AWS_SECRET_ACCESS_KEY"] || raise("Missing AWS_SECRET_ACCESS_KEY"), String)
-  KMS_KEY_ID = T.let(ENV["KMS_KEY_ID"] || raise("Missing KMS_KEY_ID"), String)
+  AWS_REGION = T.let(Helpers.require_env("AWS_REGION"), String)
+  AWS_ACCESS_KEY_ID = T.let(Helpers.require_env("AWS_ACCESS_KEY_ID"), String)
+  AWS_SECRET_ACCESS_KEY = T.let(Helpers.require_env("AWS_SECRET_ACCESS_KEY"), String)
+  KMS_KEY_ID = T.let(Helpers.require_env("KMS_KEY_ID"), String)
 
   enable :sessions
   set :session_secret, ENV["SESSION_SECRET"] || SecureRandom.hex(64)
@@ -48,7 +50,7 @@ class GoogleDriveApp < Sinatra::Base
   end
 
   get "/oauth2/authorize" do
-    T.bind(self, GoogleDriveApp)
+    T.bind(self, App)
     content_type :json
 
     state = params[:state]
@@ -81,7 +83,7 @@ class GoogleDriveApp < Sinatra::Base
   end
 
   get "/oauth2/callback" do
-    T.bind(self, GoogleDriveApp)
+    T.bind(self, App)
     content_type :json
 
     google_code = params[:code]
@@ -108,7 +110,7 @@ class GoogleDriveApp < Sinatra::Base
   end
 
   post "/oauth2/token" do
-    T.bind(self, GoogleDriveApp)
+    T.bind(self, App)
     content_type :json
 
     if params[:client_id] != ORIGIN_CLIENT_ID || params[:client_secret] != ORIGIN_CLIENT_SECRET
@@ -176,7 +178,7 @@ class GoogleDriveApp < Sinatra::Base
   end
 
   post "/latest-journal" do
-    T.bind(self, GoogleDriveApp)
+    T.bind(self, App)
     content_type :json
     encrypted_token = request.env["HTTP_AUTHORIZATION"].to_s.split(" ").last
 
