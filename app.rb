@@ -1,27 +1,32 @@
+# frozen_string_literal: true
+# typed: strict
+
 require "sinatra/base"
 require "oauth2"
 require "securerandom"
 require "json"
-require "dotenv/load"
+require "aws-sdk-kms"
+require "sorbet-runtime"
+require "google/apis/drive_v3"
+require "googleauth"
 
 class GoogleDriveApp < Sinatra::Base
-  BASE_URL = ENV["BASE_URL"] || raise("Missing BASE_URL")
+  extend T::Sig
+
+  BASE_URL = T.let(ENV["BASE_URL"] || raise("Missing BASE_URL"), String)
   ORIGIN_REDIRECT_URI = "https://chatgpt.com/aip/g-some_gpt_id/oauth/callback"
-  ORIGIN_CLIENT_ID = ENV["ORIGIN_CLIENT_ID"] || raise("Missing ORIGIN_CLIENT_ID")
-  ORIGIN_CLIENT_SECRET = ENV["ORIGIN_CLIENT_SECRET"] || raise("Missing ORIGIN_CLIENT_SECRET")
-  GATEWAY_REDIRECT_URI = "#{BASE_URL}/oauth2/callback"
-  GOOGLE_CLIENT_ID = ENV["GOOGLE_CLIENT_ID"] || raise("Missing GOOGLE_CLIENT_ID")
-  GOOGLE_CLIENT_SECRET = ENV["GOOGLE_CLIENT_SECRET"] || raise("Missing GOOGLE_CLIENT_SECRET")
+  ORIGIN_CLIENT_ID = T.let(ENV["ORIGIN_CLIENT_ID"] || raise("Missing ORIGIN_CLIENT_ID"), String)
+  ORIGIN_CLIENT_SECRET = T.let(ENV["ORIGIN_CLIENT_SECRET"] || raise("Missing ORIGIN_CLIENT_SECRET"), String)
+  GATEWAY_REDIRECT_URI = T.let("#{BASE_URL}/oauth2/callback", String)
+  GOOGLE_CLIENT_ID = T.let(ENV["GOOGLE_CLIENT_ID"] || raise("Missing GOOGLE_CLIENT_ID"), String)
+  GOOGLE_CLIENT_SECRET = T.let(ENV["GOOGLE_CLIENT_SECRET"] || raise("Missing GOOGLE_CLIENT_SECRET"), String)
   GOOGLE_OAUTH_SITE = "https://accounts.google.com"
   GOOGLE_TOKEN_URL = "/o/oauth2/token"
   GOOGLE_AUTHORIZE_URL = "/o/oauth2/auth"
-
-  GATEWAY_CODES = {}
-  GATEWAY_CODE_MUTEX = Mutex.new
-  GATEWAY_TOKENS = []
-  GATEWAY_TOKENS_MUTEX = Mutex.new
-  GATEWAY_CODE_EXPIRY = 3600 # 1 hour
-  GATEWAY_TOKEN_EXPIRY = 3600 # 1 hour
+  AWS_REGION = T.let(ENV["AWS_REGION"] || "eu-west1-1", String)
+  AWS_ACCESS_KEY_ID = T.let(ENV["AWS_ACCESS_KEY_ID"] || raise("Missing AWS_ACCESS_KEY_ID"), String)
+  AWS_SECRET_ACCESS_KEY = T.let(ENV["AWS_SECRET_ACCESS_KEY"] || raise("Missing AWS_SECRET_ACCESS_KEY"), String)
+  KMS_KEY_ID = T.let(ENV["KMS_KEY_ID"] || raise("Missing KMS_KEY_ID"), String)
 
   enable :sessions
   set :session_secret, ENV["SESSION_SECRET"] || SecureRandom.hex(64)
@@ -34,13 +39,16 @@ class GoogleDriveApp < Sinatra::Base
       authorize_url: GOOGLE_AUTHORIZE_URL,
       token_url: GOOGLE_TOKEN_URL,
     )
-  end
 
-  before do
-    cleanup_expired_tokens if rand < 0.1 # 10% chance to run cleanup on each request
+    set :kms_client, Aws::KMS::Client.new(
+      region: AWS_REGION,
+      access_key_id: AWS_ACCESS_KEY_ID,
+      secret_access_key: AWS_SECRET_ACCESS_KEY,
+    )
   end
 
   get "/oauth2/authorize" do
+    T.bind(self, GoogleDriveApp)
     content_type :json
 
     state = params[:state]
@@ -73,6 +81,7 @@ class GoogleDriveApp < Sinatra::Base
   end
 
   get "/oauth2/callback" do
+    T.bind(self, GoogleDriveApp)
     content_type :json
 
     google_code = params[:code]
@@ -93,18 +102,13 @@ class GoogleDriveApp < Sinatra::Base
       google_code,
       redirect_uri: GATEWAY_REDIRECT_URI,
     )
-    gateway_code = SecureRandom.hex(16)
-    GATEWAY_CODE_MUTEX.synchronize do
-      GATEWAY_CODES[gateway_code] = {
-        google_token: google_token,
-        expires_at: Time.now + GATEWAY_CODE_EXPIRY,
-      }
-    end
-
-    redirect build_origin_redirect_uri(gateway_code, origin_state)
+    google_token_struct = GoogleToken.from_hash(google_token.to_hash)
+    encrypted_token = encrypt_token(google_token_struct.serialize.to_json)
+    redirect build_origin_redirect_uri(encrypted_token, origin_state)
   end
 
   post "/oauth2/token" do
+    T.bind(self, GoogleDriveApp)
     content_type :json
 
     if params[:client_id] != ORIGIN_CLIENT_ID || params[:client_secret] != ORIGIN_CLIENT_SECRET
@@ -128,65 +132,38 @@ class GoogleDriveApp < Sinatra::Base
         return { status: "error", message: "Invalid redirect URI." }.to_json
       end
 
-      gateway_code = GATEWAY_CODE_MUTEX.synchronize { GATEWAY_CODES.delete(params[:code]) }
-      if gateway_code.nil?
-        status 401
-        return { status: "error", message: "Invalid authorization code." }.to_json
-      end
-
-      if gateway_code[:expires_at] < Time.now
-        status 401
-        return { status: "error", message: "Authorization code expired." }.to_json
-      end
-
-      gateway_token = {
-        access_token: SecureRandom.urlsafe_base64(32),
-        refresh_token: SecureRandom.urlsafe_base64(32),
-        google_token: gateway_code[:google_token],
-        expires_at: Time.now + GATEWAY_TOKEN_EXPIRY,
-      }
-      GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS << gateway_token }
+      encrypted_token = params[:code]
+      google_token = GoogleToken.from_hash(JSON.parse(decrypt_token(encrypted_token)))
+      refresh_token = encrypt_token(google_token.refresh_token.to_s)
 
       {
-        access_token: gateway_token[:access_token],
-        refresh_token: gateway_token[:refresh_token],
-        expires_in: GATEWAY_TOKEN_EXPIRY,
-        token_type: "Bearer",
+        access_token: encrypted_token,
+        refresh_token: refresh_token,
+        expires_in: google_token.expires_in,
+        token_type: google_token.token_type,
       }.to_json
     when "refresh_token"
-      if params[:refresh_token].nil?
-        status 400
-        return { status: "error", message: "Missing refresh token." }.to_json
-      end
-
-      gateway_token = GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.find { |t| t[:refresh_token] == params[:refresh_token] } }
-      if gateway_token.nil?
-        status 401
-        return { status: "error", message: "Invalid refresh token." }.to_json
-      end
-
-      if gateway_token[:expires_at] < Time.now
-        GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.delete(gateway_token) }
-        status 401
-        return { status: "error", message: "Refresh token expired." }.to_json
-      end
+      encrypted_refresh_token = params[:refresh_token]
+      decrypted_refresh_token = decrypt_token(encrypted_refresh_token)
 
       begin
-        gateway_token[:google_token].refresh!
-        GATEWAY_TOKENS_MUTEX.synchronize do
-          gateway_token[:access_token] = SecureRandom.urlsafe_base64(32)
-          gateway_token[:expires_at] = Time.now + GATEWAY_TOKEN_EXPIRY
-        end
+        refreshed_token = settings.oauth_client.get_token(
+          grant_type: "refresh_token",
+          refresh_token: decrypted_refresh_token,
+        )
+
+        google_token = GoogleToken.from_hash(refreshed_token.to_hash)
+        new_encrypted_token = encrypt_token(google_token.serialize.to_json)
+        new_encrypted_refresh_token = encrypt_token(google_token.refresh_token.to_s)
 
         {
-          access_token: gateway_token[:access_token],
-          refresh_token: gateway_token[:refresh_token],
-          expires_in: GATEWAY_TOKEN_EXPIRY,
-          token_type: "Bearer",
+          access_token: new_encrypted_token,
+          refresh_token: new_encrypted_refresh_token,
+          expires_in: google_token.expires_in,
+          token_type: google_token.token_type,
         }.to_json
       rescue OAuth2::Error => e
         if e.response.status == 401
-          GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.delete(gateway_token) }
           status 401
           { status: "error", message: "Invalid refresh token." }.to_json
         else
@@ -199,57 +176,89 @@ class GoogleDriveApp < Sinatra::Base
   end
 
   post "/latest-journal" do
+    T.bind(self, GoogleDriveApp)
     content_type :json
-    gateway_access_token = request.env["HTTP_AUTHORIZATION"].to_s.split(" ").last
-    google_token = GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.find { |t| t[:access_token] == gateway_access_token }&.dig(:google_token) }
-
-    if google_token.nil?
-      status 401
-      return { status: "error", message: "Invalid access token" }.to_json
-    end
-
-    if google_token.expired?
-      google_token = google_token.refresh!
-      GATEWAY_TOKENS_MUTEX.synchronize do
-        token_entry = GATEWAY_TOKENS.find { |t| t[:access_token] == gateway_access_token }
-        token_entry[:google_token] = google_token if token_entry
-      end
-    end
+    encrypted_token = request.env["HTTP_AUTHORIZATION"].to_s.split(" ").last
 
     begin
-      session = GoogleDrive::Session.from_access_token(google_token.token)
+      decrypted_token = JSON.parse(decrypt_token(encrypted_token))
+      google_token = GoogleToken.from_hash(decrypted_token)
 
-      journal_doc = session.files(q: "name = 'Journal' and mimeType = 'application/vnd.google-apps.document'").first
-      raise "Journal document not found" unless journal_doc
+      if google_token.expired?
+        refreshed_token = settings.oauth_client.get_token(
+          grant_type: "refresh_token",
+          refresh_token: google_token.refresh_token,
+        )
+        google_token = GoogleToken.from_hash(refreshed_token.to_hash)
+        encrypted_token = encrypt_token(google_token.serialize.to_json)
+      end
+
+      drive_service = Google::Apis::DriveV3::DriveService.new
+      drive_service.authorization = Google::Auth::UserRefreshCredentials.new(
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        scope: "https://www.googleapis.com/auth/drive",
+        access_token: google_token.access_token,
+        refresh_token: google_token.refresh_token,
+        expires_at: google_token.expires_at,
+      )
+
+      journal_file = drive_service.list_files(q: "name = 'Journal' and mimeType = 'application/vnd.google-apps.document'", fields: "files(id, name)").files.first
+      raise "Journal document not found" unless journal_file
 
       params = JSON.parse(request.body.read)
       text_to_prepend = params["text"]
 
-      content = journal_doc.export_as_string("text/plain")
+      content = drive_service.export_file(journal_file.id, "text/plain")
       updated_content = "#{text_to_prepend}------\n#{content}"
-      journal_doc.update_from_string(updated_content, content_type: "text/plain")
 
-      { status: "success", message: "Journal updated" }.to_json
+      drive_service.update_file(
+        journal_file.id,
+        upload_source: StringIO.new(updated_content),
+        content_type: "text/plain",
+      )
+
+      { status: "success", message: "Journal updated", new_token: encrypted_token }.to_json
     rescue => e
       status 500
       { status: "error", message: e.message }.to_json
     end
   end
 
-  def cleanup_expired_tokens
-    current_time = Time.now.to_i
-    GATEWAY_CODE_MUTEX.synchronize { GATEWAY_CODES.delete_if { |_, entry| entry[:expires_at] < current_time } }
-    GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.delete_if { |entry| entry[:expires_at] < current_time } }
+  private
+
+  sig { params(token_string: String).returns(String) }
+
+  def encrypt_token(token_string)
+    response = settings.kms_client.encrypt(
+      key_id: KMS_KEY_ID,
+      plaintext: token_string,
+    )
+    Base64.strict_encode64(response.ciphertext_blob)
   end
+
+  sig { params(encrypted_token: String).returns(String) }
+
+  def decrypt_token(encrypted_token)
+    ciphertext_blob = Base64.strict_decode64(encrypted_token)
+    response = settings.kms_client.decrypt(
+      ciphertext_blob: ciphertext_blob,
+      key_id: KMS_KEY_ID,
+    )
+    response.plaintext
+  end
+
+  sig { params(gateway_code: String, origin_state: String).returns(String) }
 
   def build_origin_redirect_uri(gateway_code, origin_state)
     redirect_uri = URI.parse(ORIGIN_REDIRECT_URI)
-    redirect_uri.query = "" if redirect_uri.query.nil?
-    redirect_uri.query += "&" unless redirect_uri.query.empty?
-    redirect_uri.query += URI.encode_www_form(
+    query = (redirect_uri.query || "").dup
+    query << "&" unless query.empty?
+    query << URI.encode_www_form(
       code: gateway_code,
       state: origin_state,
     )
+    redirect_uri.query = query
     redirect_uri.to_s
   end
 end
