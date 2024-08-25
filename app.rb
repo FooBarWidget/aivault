@@ -94,10 +94,12 @@ class GoogleDriveApp < Sinatra::Base
       redirect_uri: GATEWAY_REDIRECT_URI,
     )
     gateway_code = SecureRandom.hex(16)
-    GATEWAY_CODES[gateway_code] = {
-      google_token: google_token,
-      expires_at: Time.now + GATEWAY_CODE_EXPIRY,
-    }
+    GATEWAY_CODE_MUTEX.synchronize do
+      GATEWAY_CODES[gateway_code] = {
+        google_token: google_token,
+        expires_at: Time.now + GATEWAY_CODE_EXPIRY,
+      }
+    end
 
     redirect build_origin_redirect_uri(gateway_code, origin_state)
   end
@@ -126,7 +128,7 @@ class GoogleDriveApp < Sinatra::Base
         return { status: "error", message: "Invalid redirect URI." }.to_json
       end
 
-      gateway_code = GATEWAY_CODES.delete(code)
+      gateway_code = GATEWAY_CODE_MUTEX.synchronize { GATEWAY_CODES.delete(params[:code]) }
       if gateway_code.nil?
         status 401
         return { status: "error", message: "Invalid authorization code." }.to_json
@@ -143,7 +145,7 @@ class GoogleDriveApp < Sinatra::Base
         google_token: gateway_code[:google_token],
         expires_at: Time.now + GATEWAY_TOKEN_EXPIRY,
       }
-      GATEWAY_TOKENS << gateway_token
+      GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS << gateway_token }
 
       {
         access_token: gateway_token[:access_token],
@@ -157,22 +159,24 @@ class GoogleDriveApp < Sinatra::Base
         return { status: "error", message: "Missing refresh token." }.to_json
       end
 
-      gateway_token = GATEWAY_TOKENS.find { |t| t[:refresh_token] == params[:refresh_token] }
+      gateway_token = GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.find { |t| t[:refresh_token] == params[:refresh_token] } }
       if gateway_token.nil?
         status 401
         return { status: "error", message: "Invalid refresh token." }.to_json
       end
 
       if gateway_token[:expires_at] < Time.now
-        GATEWAY_TOKENS.delete(gateway_token)
+        GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.delete(gateway_token) }
         status 401
         return { status: "error", message: "Refresh token expired." }.to_json
       end
 
       begin
         gateway_token[:google_token].refresh!
-        gateway_token[:access_token] = SecureRandom.urlsafe_base64(32)
-        gateway_token[:expires_at] = Time.now + GATEWAY_TOKEN_EXPIRY
+        GATEWAY_TOKENS_MUTEX.synchronize do
+          gateway_token[:access_token] = SecureRandom.urlsafe_base64(32)
+          gateway_token[:expires_at] = Time.now + GATEWAY_TOKEN_EXPIRY
+        end
 
         {
           access_token: gateway_token[:access_token],
@@ -182,7 +186,7 @@ class GoogleDriveApp < Sinatra::Base
         }.to_json
       rescue OAuth2::Error => e
         if e.response.status == 401
-          GATEWAY_TOKENS.delete(gateway_token)
+          GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.delete(gateway_token) }
           status 401
           { status: "error", message: "Invalid refresh token." }.to_json
         else
@@ -197,7 +201,7 @@ class GoogleDriveApp < Sinatra::Base
   post "/latest-journal" do
     content_type :json
     gateway_access_token = request.env["HTTP_AUTHORIZATION"].to_s.split(" ").last
-    google_token = GOOGLE_TOKENS[gateway_access_token]
+    google_token = GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.find { |t| t[:access_token] == gateway_access_token }&.dig(:google_token) }
 
     if google_token.nil?
       status 401
@@ -206,7 +210,10 @@ class GoogleDriveApp < Sinatra::Base
 
     if google_token.expired?
       google_token = google_token.refresh!
-      GOOGLE_TOKENS[gateway_access_token] = google_token
+      GATEWAY_TOKENS_MUTEX.synchronize do
+        token_entry = GATEWAY_TOKENS.find { |t| t[:access_token] == gateway_access_token }
+        token_entry[:google_token] = google_token if token_entry
+      end
     end
 
     begin
@@ -231,8 +238,8 @@ class GoogleDriveApp < Sinatra::Base
 
   def cleanup_expired_tokens
     current_time = Time.now.to_i
-    GATEWAY_CODES.delete_if { |_, entry| entry[:expires_at] < current_time }
-    GATEWAY_TOKENS.delete_if { |entry| entry[:expires_at] < current_time }
+    GATEWAY_CODE_MUTEX.synchronize { GATEWAY_CODES.delete_if { |_, entry| entry[:expires_at] < current_time } }
+    GATEWAY_TOKENS_MUTEX.synchronize { GATEWAY_TOKENS.delete_if { |entry| entry[:expires_at] < current_time } }
   end
 
   def build_origin_redirect_uri(gateway_code, origin_state)
