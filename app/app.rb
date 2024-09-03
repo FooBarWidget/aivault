@@ -22,7 +22,9 @@ module DrivePlug
     GOOGLE_TOKEN_URL = "/o/oauth2/token"
     GOOGLE_AUTHORIZE_URL = "/o/oauth2/auth"
 
-    enable :sessions
+    enable :logging
+    disable :protection
+    set :sessions, expire_after: 86400
     set :session_secret, SESSION_SECRET
 
     configure do

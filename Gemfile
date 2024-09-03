@@ -8,6 +8,7 @@ gem "nokogiri"
 gem "sorbet-runtime"
 gem "google-apis-drive_v3"
 gem "rack"
+gem "rack-protection"
 gem "puma"
 
 group :development do
