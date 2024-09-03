@@ -248,6 +248,7 @@ module DrivePlug
           upload_source: StringIO.new(updated_content),
           content_type: "text/x-markdown",
         )
+        status 201
         { status: "success", message: "Journal updated." }.to_json
       end
     end
