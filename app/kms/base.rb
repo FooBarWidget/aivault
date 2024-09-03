@@ -3,7 +3,7 @@
 
 require "sorbet-runtime"
 
-module AIMemoryGateway
+module DrivePlug
   module Kms
     class Base
       extend T::Sig

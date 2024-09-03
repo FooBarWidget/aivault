@@ -13,6 +13,8 @@ gem "puma"
 group :development do
   gem "sorbet"
   gem "tapioca", require: false
+  gem "rbi", "~> 0.1.14" # 0.2 seems to cause issues with Tapioca
+  gem "sorbet-rspec", git: "https://github.com/FooBarWidget/sorbet-rspec.git"
 end
 
 group :development, :test do

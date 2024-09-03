@@ -7,7 +7,7 @@ require "google/cloud/kms/v1/key_management_service/client"
 require_relative "base"
 require_relative "../settings"
 
-module AIMemoryGateway
+module DrivePlug
   module Kms
     class Gcloud < Base
       sig { void }

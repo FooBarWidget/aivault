@@ -206,7 +206,7 @@ class RBI::TypedParam < ::T::Struct
   const :type, ::String
 
   class << self
-    # source://sorbet-runtime/0.5.11545/lib/types/struct.rb#13
+    # source://sorbet-runtime/0.5.11553/lib/types/struct.rb#13
     def inherited(s); end
   end
 end
@@ -867,7 +867,7 @@ class Tapioca::Commands::Command
   sig { void }
   def initialize; end
 
-  # source://thor/1.3.1/lib/thor/base.rb#155
+  # source://thor/1.3.2/lib/thor/base.rb#155
   sig { returns(::Thor::Actions) }
   def file_writer; end
 
@@ -1129,7 +1129,7 @@ class Tapioca::ConfigHelper::ConfigError < ::T::Struct
   const :message_parts, T::Array[::Tapioca::ConfigHelper::ConfigErrorMessagePart]
 
   class << self
-    # source://sorbet-runtime/0.5.11545/lib/types/struct.rb#13
+    # source://sorbet-runtime/0.5.11553/lib/types/struct.rb#13
     def inherited(s); end
   end
 end
@@ -1140,7 +1140,7 @@ class Tapioca::ConfigHelper::ConfigErrorMessagePart < ::T::Struct
   const :colors, T::Array[::Symbol]
 
   class << self
-    # source://sorbet-runtime/0.5.11545/lib/types/struct.rb#13
+    # source://sorbet-runtime/0.5.11553/lib/types/struct.rb#13
     def inherited(s); end
   end
 end
@@ -2196,7 +2196,7 @@ class Tapioca::GemInfo < ::T::Struct
     sig { params(spec: ::Bundler::LazySpecification).returns(::Tapioca::GemInfo) }
     def from_spec(spec); end
 
-    # source://sorbet-runtime/0.5.11545/lib/types/struct.rb#13
+    # source://sorbet-runtime/0.5.11553/lib/types/struct.rb#13
     def inherited(s); end
   end
 end
@@ -3526,14 +3526,14 @@ class URI::Source < ::URI::File
   sig { params(v: T.nilable(::String)).returns(T::Boolean) }
   def check_host(v); end
 
-  # source://uri/0.13.0/uri/generic.rb#243
+  # source://uri/0.13.1/lib/uri/generic.rb#243
   def gem_name; end
 
   # source://tapioca//lib/tapioca/helpers/source_uri.rb#25
   sig { returns(T.nilable(::String)) }
   def gem_version; end
 
-  # source://uri/0.13.0/uri/generic.rb#283
+  # source://uri/0.13.1/lib/uri/generic.rb#283
   def line_number; end
 
   # source://tapioca//lib/tapioca/helpers/source_uri.rb#51

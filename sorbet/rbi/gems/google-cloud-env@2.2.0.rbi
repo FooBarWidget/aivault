@@ -19,7 +19,7 @@ module Google::Cloud
     #
     # @return [Google::Cloud::Env]
     #
-    # source://google-cloud-env//lib/google/cloud/env.rb#517
+    # source://google-cloud-env//lib/google/cloud/env.rb#530
     def env; end
   end
 end
@@ -337,6 +337,17 @@ class Google::Cloud::Env
   # source://google-cloud-env//lib/google/cloud/env.rb#489
   def kubernetes_engine_namespace_id; end
 
+  # Determine whether the application is running in an environment where a
+  # Google Cloud logging agent is expected to be running. In such an
+  # environment, we expect that the standard output and error streams are
+  # likely to be parsed by the logging agent and log entries are written to
+  # the Google Cloud Logging service.
+  #
+  # @return [boolean]
+  #
+  # source://google-cloud-env//lib/google/cloud/env.rb#509
+  def logging_agent_expected?; end
+
   # Retrieve info from the Google Compute Engine Metadata Service.
   # Returns `nil` if the given data is not present.
   #
@@ -431,7 +442,7 @@ class Google::Cloud::Env
     #
     # @return [Google::Cloud::Env]
     #
-    # source://google-cloud-env//lib/google/cloud/env.rb#505
+    # source://google-cloud-env//lib/google/cloud/env.rb#518
     def get; end
   end
 end

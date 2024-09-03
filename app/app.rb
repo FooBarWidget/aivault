@@ -11,7 +11,7 @@ require "googleauth"
 require_relative "settings"
 require_relative "helpers"
 
-module AIMemoryGateway
+module DrivePlug
   class App < Sinatra::Base
     extend T::Sig
 
@@ -56,7 +56,7 @@ module AIMemoryGateway
         status 400
         return { status: "error", message: "Missing state parameter." }.to_json
       end
-      if client_id != AIMemoryGateway::ORIGIN_CLIENT_ID
+      if client_id != DrivePlug::ORIGIN_CLIENT_ID
         status 401
         return { status: "error", message: "Invalid client ID." }.to_json
       end
@@ -109,7 +109,7 @@ module AIMemoryGateway
       T.bind(self, App)
       content_type :json
 
-      if params[:client_id] != AIMemoryGateway::ORIGIN_CLIENT_ID || params[:client_secret] != AIMemoryGateway::ORIGIN_CLIENT_SECRET
+      if params[:client_id] != DrivePlug::ORIGIN_CLIENT_ID || params[:client_secret] != DrivePlug::ORIGIN_CLIENT_SECRET
         status 401
         return { status: "error", message: "Invalid client credentials." }.to_json
       end
@@ -161,6 +161,7 @@ module AIMemoryGateway
             token_type: "Bearer",
           }.to_json
         rescue OAuth2::Error => e
+          puts e
           if e.response.status == 401
             status 401
             { status: "error", message: "Invalid refresh token." }.to_json

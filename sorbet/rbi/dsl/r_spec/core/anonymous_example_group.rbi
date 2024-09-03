@@ -6,9 +6,6 @@
 
 
 class RSpec::Core::AnonymousExampleGroup < RSpec::Core::ExampleGroup
-  include ::RSpec::Matchers
-  include ::RSpec::Mocks::ExampleMethods
-
   class << self
     sig { params(args: T.untyped, block: T.proc.bind(RSpec::Core::AnonymousExampleGroup).void).returns(T.untyped) }
     def after(*args, &block); end

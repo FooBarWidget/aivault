@@ -11,7 +11,7 @@ module Google; end
 # source://google-cloud-errors//lib/google/cloud/errors.rb#19
 module Google::Cloud
   class << self
-    # source://google-cloud-env/2.1.1/lib/google/cloud/env.rb#517
+    # source://google-cloud-env/2.2.0/lib/google/cloud/env.rb#530
     def env; end
   end
 end

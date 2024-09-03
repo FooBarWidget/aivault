@@ -11,7 +11,7 @@ module Google; end
 # source://google-cloud-location//lib/google/cloud/location/version.rb#21
 module Google::Cloud
   class << self
-    # source://google-cloud-env/2.1.1/lib/google/cloud/env.rb#517
+    # source://google-cloud-env/2.2.0/lib/google/cloud/env.rb#530
     def env; end
   end
 end
@@ -74,7 +74,7 @@ class Google::Cloud::Location::Locations::Client
   # @yield [config] Configure the Locations client.
   # @yieldparam config [Client::Configuration]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#120
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#123
   def initialize; end
 
   # Configure the Locations Client instance.
@@ -90,7 +90,7 @@ class Google::Cloud::Location::Locations::Client
   # @yield [config] Configure the Client client.
   # @yieldparam config [Client::Configuration]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#90
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#93
   def configure; end
 
   # Gets information about a location.
@@ -117,7 +117,7 @@ class Google::Cloud::Location::Locations::Client
   # @yieldparam response [::Google::Cloud::Location::Location]
   # @yieldparam operation [::GRPC::ActiveCall::Operation]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#302
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#306
   def get_location(request, options = T.unsafe(nil)); end
 
   # Lists information about the supported locations for this service.
@@ -148,19 +148,19 @@ class Google::Cloud::Location::Locations::Client
   # @yieldparam response [::Gapic::PagedEnumerable<::Google::Cloud::Location::Location>]
   # @yieldparam operation [::GRPC::ActiveCall::Operation]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#216
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#219
   def list_locations(request, options = T.unsafe(nil)); end
 
   # @private
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#38
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#41
   def locations_stub; end
 
   # The effective universe domain
   #
   # @return [String]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#100
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#103
   def universe_domain; end
 
   class << self
@@ -179,10 +179,15 @@ class Google::Cloud::Location::Locations::Client
     # @yield [config] Configure the Client client.
     # @yieldparam config [Client::Configuration]
     #
-    # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#58
+    # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#61
     def configure; end
   end
 end
+
+# @private
+#
+# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#35
+Google::Cloud::Location::Locations::Client::API_VERSION = T.let(T.unsafe(nil), String)
 
 # Configuration class for the Locations API.
 #
@@ -212,7 +217,7 @@ end
 #   config.rpcs.list_locations.timeout = 20.0
 #   end
 #
-# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#427
+# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#432
 class Google::Cloud::Location::Locations::Client::Configuration
   extend ::Gapic::Config
 
@@ -221,7 +226,7 @@ class Google::Cloud::Location::Locations::Client::Configuration
   # @yield [_self]
   # @yieldparam _self [Google::Cloud::Location::Locations::Client::Configuration] the object that the method was called on
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#452
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#457
   def initialize(parent_config = T.unsafe(nil)); end
 
   # Extra parameters passed to the gRPC channel. Note: this is ignored if a
@@ -244,7 +249,7 @@ class Google::Cloud::Location::Locations::Client::Configuration
   #
   # @return [::Gapic::ServiceStub::ChannelPool::Configuration]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#474
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#479
   def channel_pool; end
 
   # Credentials to send with calls. You may provide any of the following types:
@@ -393,7 +398,7 @@ class Google::Cloud::Location::Locations::Client::Configuration
   #
   # @return [Rpcs]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#462
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#467
   def rpcs; end
 
   # The OAuth scopes
@@ -447,7 +452,7 @@ end
 #
 # @private
 #
-# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#432
+# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#437
 Google::Cloud::Location::Locations::Client::Configuration::DEFAULT_ENDPOINT = T.let(T.unsafe(nil), String)
 
 # Configuration RPC class for the Locations API.
@@ -466,34 +471,34 @@ Google::Cloud::Location::Locations::Client::Configuration::DEFAULT_ENDPOINT = T.
 #      *  `:retry_codes` (*type:* `Array<String>`) - The error codes that should
 #         trigger a retry.
 #
-# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#495
+# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#500
 class Google::Cloud::Location::Locations::Client::Configuration::Rpcs
   # @private
   # @return [Rpcs] a new instance of Rpcs
   # @yield [_self]
   # @yieldparam _self [Google::Cloud::Location::Locations::Client::Configuration::Rpcs] the object that the method was called on
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#508
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#513
   def initialize(parent_rpcs = T.unsafe(nil)); end
 
   # RPC-specific configuration for `get_location`
   #
   # @return [::Gapic::Config::Method]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#505
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#510
   def get_location; end
 
   # RPC-specific configuration for `list_locations`
   #
   # @return [::Gapic::Config::Method]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#500
+  # source://google-cloud-location//lib/google/cloud/location/locations/client.rb#505
   def list_locations; end
 end
 
 # @private
 #
-# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#35
+# source://google-cloud-location//lib/google/cloud/location/locations/client.rb#38
 Google::Cloud::Location::Locations::Client::DEFAULT_ENDPOINT_TEMPLATE = T.let(T.unsafe(nil), String)
 
 # Credentials for the Locations API.
@@ -529,7 +534,7 @@ class Google::Cloud::Location::Locations::Rest::Client
   # @yield [config] Configure the Locations client.
   # @yieldparam config [Client::Configuration]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#122
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#125
   def initialize; end
 
   # Configure the Locations Client instance.
@@ -545,7 +550,7 @@ class Google::Cloud::Location::Locations::Rest::Client
   # @yield [config] Configure the Client client.
   # @yieldparam config [Client::Configuration]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#92
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#95
   def configure; end
 
   # Gets information about a location.
@@ -572,7 +577,7 @@ class Google::Cloud::Location::Locations::Rest::Client
   # @yieldparam result [::Google::Cloud::Location::Location]
   # @yieldparam operation [::Gapic::Rest::TransportOperation]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#289
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#293
   def get_location(request, options = T.unsafe(nil)); end
 
   # Lists information about the supported locations for this service.
@@ -603,19 +608,19 @@ class Google::Cloud::Location::Locations::Rest::Client
   # @yieldparam result [::Gapic::Rest::PagedEnumerable<::Google::Cloud::Location::Location>]
   # @yieldparam operation [::Gapic::Rest::TransportOperation]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#208
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#211
   def list_locations(request, options = T.unsafe(nil)); end
 
   # @private
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#40
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#43
   def locations_stub; end
 
   # The effective universe domain
   #
   # @return [String]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#102
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#105
   def universe_domain; end
 
   class << self
@@ -634,10 +639,15 @@ class Google::Cloud::Location::Locations::Rest::Client
     # @yield [config] Configure the Client client.
     # @yieldparam config [Client::Configuration]
     #
-    # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#60
+    # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#63
     def configure; end
   end
 end
+
+# @private
+#
+# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#37
+Google::Cloud::Location::Locations::Rest::Client::API_VERSION = T.let(T.unsafe(nil), String)
 
 # Configuration class for the Locations REST API.
 #
@@ -667,7 +677,7 @@ end
 #   config.rpcs.list_locations.timeout = 20.0
 #   end
 #
-# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#401
+# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#406
 class Google::Cloud::Location::Locations::Rest::Client::Configuration
   extend ::Gapic::Config
 
@@ -676,7 +686,7 @@ class Google::Cloud::Location::Locations::Rest::Client::Configuration
   # @yield [_self]
   # @yieldparam _self [Google::Cloud::Location::Locations::Rest::Client::Configuration] the object that the method was called on
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#430
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#435
   def initialize(parent_config = T.unsafe(nil)); end
 
   # Overrides for http bindings for the RPCs of this service
@@ -820,7 +830,7 @@ class Google::Cloud::Location::Locations::Rest::Client::Configuration
   #
   # @return [Rpcs]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#440
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#445
   def rpcs; end
 
   # The OAuth scopes
@@ -874,7 +884,7 @@ end
 #
 # @private
 #
-# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#406
+# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#411
 Google::Cloud::Location::Locations::Rest::Client::Configuration::DEFAULT_ENDPOINT = T.let(T.unsafe(nil), String)
 
 # Configuration RPC class for the Locations API.
@@ -893,34 +903,34 @@ Google::Cloud::Location::Locations::Rest::Client::Configuration::DEFAULT_ENDPOIN
 #      *  `:retry_codes` (*type:* `Array<String>`) - The error codes that should
 #         trigger a retry.
 #
-# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#465
+# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#470
 class Google::Cloud::Location::Locations::Rest::Client::Configuration::Rpcs
   # @private
   # @return [Rpcs] a new instance of Rpcs
   # @yield [_self]
   # @yieldparam _self [Google::Cloud::Location::Locations::Rest::Client::Configuration::Rpcs] the object that the method was called on
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#478
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#483
   def initialize(parent_rpcs = T.unsafe(nil)); end
 
   # RPC-specific configuration for `get_location`
   #
   # @return [::Gapic::Config::Method]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#475
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#480
   def get_location; end
 
   # RPC-specific configuration for `list_locations`
   #
   # @return [::Gapic::Config::Method]
   #
-  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#470
+  # source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#475
   def list_locations; end
 end
 
 # @private
 #
-# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#37
+# source://google-cloud-location//lib/google/cloud/location/locations/rest/client.rb#40
 Google::Cloud::Location::Locations::Rest::Client::DEFAULT_ENDPOINT_TEMPLATE = T.let(T.unsafe(nil), String)
 
 # REST service stub for the Locations service.

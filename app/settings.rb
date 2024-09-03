@@ -3,7 +3,7 @@
 
 require "securerandom"
 
-module AIMemoryGateway
+module DrivePlug
   extend T::Sig
 
   sig { params(name: String).returns(String) }

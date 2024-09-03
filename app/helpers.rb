@@ -5,7 +5,7 @@ require "sorbet-runtime"
 require "uri"
 require_relative "settings"
 
-module AIMemoryGateway
+module DrivePlug
   module Helpers
     class << self
       extend T::Sig

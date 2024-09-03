@@ -6,7 +6,7 @@ require "base64"
 require_relative "base"
 require_relative "../settings"
 
-module AIMemoryGateway
+module DrivePlug
   module Kms
     class Aws < Base
       sig { void }
