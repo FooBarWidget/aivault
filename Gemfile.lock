@@ -76,6 +76,9 @@ GEM
     google-protobuf (4.28.0-x86_64-darwin)
       bigdecimal
       rake (>= 13)
+    google-protobuf (4.28.0-x86_64-linux)
+      bigdecimal
+      rake (>= 13)
     googleapis-common-protos (1.6.0)
       google-protobuf (>= 3.18, < 5.a)
       googleapis-common-protos-types (~> 1.7)
@@ -93,6 +96,9 @@ GEM
       google-protobuf (>= 3.25, < 5.0)
       googleapis-common-protos-types (~> 1.0)
     grpc (1.66.0-x86_64-darwin)
+      google-protobuf (>= 3.25, < 5.0)
+      googleapis-common-protos-types (~> 1.0)
+    grpc (1.66.0-x86_64-linux)
       google-protobuf (>= 3.25, < 5.0)
       googleapis-common-protos-types (~> 1.0)
     grpc-google-iam-v1 (1.8.0)
@@ -120,6 +126,8 @@ GEM
     nokogiri (1.16.7-arm64-darwin)
       racc (~> 1.4)
     nokogiri (1.16.7-x86_64-darwin)
+      racc (~> 1.4)
+    nokogiri (1.16.7-x86_64-linux)
       racc (~> 1.4)
     oauth2 (2.0.9)
       faraday (>= 0.17.3, < 3.0)
@@ -188,6 +196,7 @@ GEM
       sorbet-static (= 0.5.11553)
     sorbet-runtime (0.5.11553)
     sorbet-static (0.5.11553-universal-darwin)
+    sorbet-static (0.5.11553-x86_64-linux)
     sorbet-static-and-runtime (0.5.11553)
       sorbet (= 0.5.11553)
       sorbet-runtime (= 0.5.11553)
@@ -219,6 +228,7 @@ GEM
 PLATFORMS
   arm64-darwin-22
   x86_64-darwin-23
+  x86_64-linux-gnu
 
 DEPENDENCIES
   aws-sdk-kms
