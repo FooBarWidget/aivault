@@ -5,6 +5,8 @@ require "sinatra/base"
 require "oauth2"
 require "securerandom"
 require "json"
+require "stringio"
+require "time"
 require "sorbet-runtime"
 require "google/apis/drive_v3"
 require "googleauth"
@@ -68,8 +70,7 @@ module DrivePlug
       session[:origin_state] = state
       session[:gateway_state] = SecureRandom.urlsafe_base64(16)
 
-      oauth_client = T.cast(settings.oauth_client, OAuth2::Client, checked: false)
-      redirect oauth_client.auth_code.authorize_url(
+      redirect get_oauth_client.auth_code.authorize_url(
         redirect_uri: GATEWAY_REDIRECT_URI,
         scope: "https://www.googleapis.com/auth/drive",
         access_type: "offline",
@@ -96,12 +97,11 @@ module DrivePlug
         return { status: "error", message: "Invalid state parameter." }.to_json
       end
 
-      oauth_client = T.cast(settings.oauth_client, OAuth2::Client, checked: false)
-      google_token = oauth_client.auth_code.get_token(
+      google_token = get_oauth_client.auth_code.get_token(
         google_code,
         redirect_uri: GATEWAY_REDIRECT_URI,
       )
-      encrypted_token = settings.kms.encrypt(google_token.to_hash.to_json)
+      encrypted_token = get_kms.encrypt(google_token.to_hash.to_json)
       redirect Helpers.extend_redirect_uri(ORIGIN_REDIRECT_URI, encrypted_token, origin_state)
     end
 
@@ -118,8 +118,6 @@ module DrivePlug
         return { status: "error", message: "Invalid grant type." }.to_json
       end
 
-      oauth_client = T.cast(settings.oauth_client, OAuth2::Client, checked: false)
-
       case params[:grant_type]
       when "authorization_code"
         if params[:code].nil?
@@ -133,8 +131,8 @@ module DrivePlug
         end
 
         encrypted_token = params[:code]
-        google_token = OAuth2::AccessToken.from_hash(oauth_client, JSON.parse(settings.kms.decrypt(encrypted_token)))
-        refresh_token = settings.kms.encrypt(google_token.refresh_token.to_s)
+        google_token = OAuth2::AccessToken.from_hash(get_oauth_client, JSON.parse(get_kms.decrypt(encrypted_token)))
+        refresh_token = get_kms.encrypt(google_token.refresh_token.to_s)
 
         {
           access_token: encrypted_token,
@@ -144,15 +142,15 @@ module DrivePlug
         }.to_json
       when "refresh_token"
         encrypted_refresh_token = params[:refresh_token]
-        decrypted_refresh_token = settings.kms.decrypt(encrypted_refresh_token)
+        decrypted_refresh_token = get_kms.decrypt(encrypted_refresh_token)
 
         begin
-          google_token = oauth_client.get_token(
+          google_token = get_oauth_client.get_token(
             grant_type: "refresh_token",
             refresh_token: decrypted_refresh_token,
           )
-          new_encrypted_token = settings.kms.encrypt(google_token.to_hash.to_json)
-          new_encrypted_refresh_token = settings.kms.encrypt(google_token.refresh_token)
+          new_encrypted_token = get_kms.encrypt(google_token.to_hash.to_json)
+          new_encrypted_refresh_token = get_kms.encrypt(google_token.refresh_token)
 
           {
             access_token: new_encrypted_token,
@@ -174,57 +172,126 @@ module DrivePlug
       end
     end
 
-    post "/latest-journal" do
+    get "/journal/latest.md" do
       T.bind(self, App)
       content_type :json
-      encrypted_token = request.env["HTTP_AUTHORIZATION"].to_s.split(" ").last
 
-      begin
-        decrypted_token = JSON.parse(settings.kms.decrypt(encrypted_token))
-        oauth_client = T.cast(settings.oauth_client, OAuth2::Client, checked: false)
-        google_token = OAuth2::AccessToken.from_hash(oauth_client, decrypted_token)
+      drive_service = get_drive_service
+      journal = drive_service.list_files(
+        q: "name = '#{JOURNAL_DOCUMENT_NAME}' and mimeType = 'application/vnd.google-apps.document' and '#{GDRIVE_FOLDER_ID}' in parents and trashed = false",
+        fields: "files(id, name)",
+      ).files.first
+      if journal.nil?
+        content_type "text/x-markdown"
+        return ""
+      end
 
-        if google_token.expired?
-          google_token = settings.oauth_client.get_token(
-            grant_type: "refresh_token",
-            refresh_token: google_token.refresh_token,
-          )
-          encrypted_token = settings.kms.encrypt(google_token.to_hash.to_json)
-        end
+      journal_content = drive_service.export_file(journal.id, "text/x-markdown")
+      content_type "text/x-markdown"
+      Helpers.extract_latest_journal_entry(journal_content)
+    end
 
-        drive_service = Google::Apis::DriveV3::DriveService.new
-        drive_service.authorization = Google::Auth::UserRefreshCredentials.new(
-          client_id: GOOGLE_CLIENT_ID,
-          client_secret: GOOGLE_CLIENT_SECRET,
-          scope: "https://www.googleapis.com/auth/drive",
-          access_token: google_token.access_token,
-          refresh_token: google_token.refresh_token,
-          expires_at: google_token.expires_at,
+    post "/journal/latest.md" do
+      T.bind(self, App)
+      content_type :json
+
+      input_body = request.body.read
+      if input_body.nil? || input_body.empty?
+        status 400
+        return { status: "error", message: "Missing request body." }.to_json
+      end
+
+      params = JSON.parse(input_body)
+      text_to_prepend = params["text"]
+      if text_to_prepend.nil? || text_to_prepend.empty?
+        status 400
+        return { status: "error", message: "Missing or empty text parameter." }.to_json
+      end
+
+      drive_service = get_drive_service
+      journal = drive_service.list_files(
+        q: "name = '#{JOURNAL_DOCUMENT_NAME}' and mimeType = 'application/vnd.google-apps.document' and '#{GDRIVE_FOLDER_ID}' in parents and trashed = false",
+        fields: "files(id, name)",
+      ).files.first
+
+      if journal.nil?
+        content = <<~EOF
+          # Journal entry #{Time.now.iso8601}
+
+          #{text_to_prepend}
+        EOF
+
+        drive_service.create_file(
+          Google::Apis::DriveV3::File.new(
+            name: JOURNAL_DOCUMENT_NAME,
+            parents: [GDRIVE_FOLDER_ID],
+            mime_type: "application/vnd.google-apps.document",
+          ),
+          upload_source: StringIO.new(content),
+          content_type: "text/x-markdown",
         )
+        { status: "success", message: "Journal created." }.to_json
+      else
+        existing_content = drive_service.export_file(journal.id, "text/x-markdown")
+        updated_content = <<~EOF
+          # Journal entry #{Time.now.iso8601}
 
-        journal_file = drive_service.list_files(
-          q: "name = 'Journal' and mimeType = 'application/vnd.google-apps.document' and '#{GDRIVE_FOLDER_ID}' in parents and trashed = false",
-          fields: "files(id, name)",
-        ).files.first
-        raise "Journal document not found in the specified folder" unless journal_file
+          #{text_to_prepend}
 
-        params = JSON.parse(request.body.read)
-        text_to_prepend = params["text"]
+          ---
 
-        content = drive_service.export_file(journal_file.id, "text/plain")
-        updated_content = "#{text_to_prepend}------\n#{content}"
+          #{existing_content}
+        EOF
 
         drive_service.update_file(
-          journal_file.id,
+          journal.id,
           upload_source: StringIO.new(updated_content),
-          content_type: "text/plain",
+          content_type: "text/x-markdown",
         )
-
-        { status: "success", message: "Journal updated", new_token: encrypted_token }.to_json
-      rescue => e
-        status 500
-        { status: "error", message: e.message }.to_json
+        { status: "success", message: "Journal updated." }.to_json
       end
+    end
+
+    sig { returns(OAuth2::Client) }
+
+    def get_oauth_client
+      T.bind(self, App)
+      settings.oauth_client
+    end
+
+    sig { returns(Kms::Base) }
+
+    def get_kms
+      T.bind(self, App)
+      settings.kms
+    end
+
+    sig { returns(Google::Apis::DriveV3::DriveService) }
+
+    def get_drive_service
+      T.bind(self, App)
+
+      if (auth_header = request.env["HTTP_AUTHORIZATION"]).nil?
+        content_type :json
+        halt 401, { status: "error", message: "Missing Authorization header" }.to_json
+      end
+
+      encrypted_token = auth_header.split(" ").last
+      decrypted_token = JSON.parse(get_kms.decrypt(encrypted_token))
+      oauth_client = get_oauth_client
+      google_token = T.cast(OAuth2::AccessToken.from_hash(oauth_client, decrypted_token), OAuth2::AccessToken)
+
+      drive_service = Google::Apis::DriveV3::DriveService.new
+      drive_service.authorization = Google::Auth::UserRefreshCredentials.new(
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        scope: "https://www.googleapis.com/auth/drive",
+        access_token: google_token.token,
+        refresh_token: google_token.refresh_token,
+        expires_at: google_token.expires_at,
+      )
+
+      drive_service
     end
   end
 end

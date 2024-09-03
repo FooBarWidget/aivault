@@ -2,6 +2,7 @@
 # typed: strict
 
 require "securerandom"
+require "sorbet-runtime"
 
 module DrivePlug
   extend T::Sig
@@ -19,6 +20,7 @@ module DrivePlug
   GOOGLE_CLIENT_ID = T.let(require_env("GOOGLE_CLIENT_ID"), String)
   GOOGLE_CLIENT_SECRET = T.let(require_env("GOOGLE_CLIENT_SECRET"), String)
   GDRIVE_FOLDER_ID = T.let(require_env("GDRIVE_FOLDER_ID"), String)
+  JOURNAL_DOCUMENT_NAME = T.let(ENV["JOURNAL_DOCUMENT_NAME"] || "Journal", String)
   SESSION_SECRET = T.let(ENV["SESSION_SECRET"] || SecureRandom.hex(64), String)
 
   KMS_TYPE = T.let(require_env("KMS_TYPE"), String)

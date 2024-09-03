@@ -23,6 +23,12 @@ module DrivePlug
         redirect_uri.query = query
         redirect_uri.to_s
       end
+
+      sig { params(full_content: String).returns(String) }
+
+      def extract_latest_journal_entry(full_content)
+        full_content.split("\n---\n\n# Journal entry", 2).first || ""
+      end
     end
   end
 end
