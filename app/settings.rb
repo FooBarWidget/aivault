@@ -16,7 +16,7 @@ module DrivePlug
   BASE_URL = T.let(require_env("BASE_URL"), String)
   ORIGIN_CLIENT_ID = T.let(require_env("ORIGIN_CLIENT_ID"), String)
   ORIGIN_CLIENT_SECRET = T.let(require_env("ORIGIN_CLIENT_SECRET"), String)
-  ORIGIN_REDIRECT_URI = T.let(ENV["ORIGIN_REDIRECT_URI"] || "https://chatgpt.com/aip/g-some_gpt_id/oauth/callback", String)
+  ORIGIN_REDIRECT_URI = T.let(require_env("ORIGIN_REDIRECT_URI"), String)
   GOOGLE_CLIENT_ID = T.let(require_env("GOOGLE_CLIENT_ID"), String)
   GOOGLE_CLIENT_SECRET = T.let(require_env("GOOGLE_CLIENT_SECRET"), String)
   GDRIVE_FOLDER_ID = T.let(require_env("GDRIVE_FOLDER_ID"), String)
