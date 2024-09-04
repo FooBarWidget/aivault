@@ -14,9 +14,9 @@ use Rack::CommonLogger
 use Rack::Protection::FrameOptions
 use Rack::Protection::HttpOrigin
 use Rack::Protection::IPSpoofing
-use Rack::Protection::JsonCsrf, allow_if: lambda { |env| env["PATH_INFO"] == "/oauth2/authorize" }
+use Rack::Protection::JsonCsrf, allow_if: lambda { |env| ["/oauth2/authorize", "/oauth2/callback"].include?(env["PATH_INFO"]) }
 use Rack::Protection::PathTraversal
-use DrivePlug::RackConditionalProtection, unprotected_paths: ["/oauth2/authorize"], middleware: Rack::Protection::RemoteToken
+use DrivePlug::RackConditionalProtection, unprotected_paths: ["/oauth2/authorize", "/oauth2/callback"], middleware: Rack::Protection::RemoteToken
 use Rack::Protection::XSSHeader
 
 run DrivePlug::App
