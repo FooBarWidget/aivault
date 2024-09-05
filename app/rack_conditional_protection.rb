@@ -9,7 +9,6 @@ module DrivePlug
     extend T::Sig
 
     sig { params(app: T.untyped, unprotected_paths: T::Array[String], middleware: T.untyped).void }
-
     def initialize(app, unprotected_paths:, middleware:)
       @app = app
       @unprotected_paths = unprotected_paths
@@ -17,7 +16,6 @@ module DrivePlug
     end
 
     sig { params(env: T.untyped).returns(T.untyped) }
-
     def call(env)
       path = env["PATH_INFO"]
       if @unprotected_paths.any? { |unprotected_path| path == unprotected_path }

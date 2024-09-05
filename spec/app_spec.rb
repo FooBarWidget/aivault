@@ -9,8 +9,8 @@ require_relative "../app/app"
 # Workaround for https://github.com/sorbet/sorbet/issues/8143
 if false
   T::Sig::WithoutRuntime.sig { params(block: T.proc.bind(T::Private::Methods::DeclBuilder).void).void }
-
-  def sig(&block); end
+  def sig(&block)
+  end
 end
 
 RSpec.describe DrivePlug::App, "OAuth2" do
@@ -19,7 +19,6 @@ RSpec.describe DrivePlug::App, "OAuth2" do
   include Rack::Test::Methods
 
   sig { returns(T.class_of(DrivePlug::App)) }
-
   def app
     DrivePlug::App
   end
@@ -44,7 +43,7 @@ RSpec.describe DrivePlug::App, "OAuth2" do
       get "/oauth2/authorize", {
         state: state,
         client_id: DrivePlug::ORIGIN_CLIENT_ID,
-        redirect_uri: DrivePlug::ORIGIN_REDIRECT_URI,
+        redirect_uri: DrivePlug::ORIGIN_REDIRECT_URI
       }
 
       expect(last_response).to be_redirect
@@ -54,7 +53,7 @@ RSpec.describe DrivePlug::App, "OAuth2" do
     it "returns an error for missing state" do
       get "/oauth2/authorize", {
         client_id: DrivePlug::ORIGIN_CLIENT_ID,
-        redirect_uri: DrivePlug::ORIGIN_REDIRECT_URI,
+        redirect_uri: DrivePlug::ORIGIN_REDIRECT_URI
       }
 
       expect(last_response.status).to eq(400)
@@ -66,7 +65,7 @@ RSpec.describe DrivePlug::App, "OAuth2" do
 
   describe "GET /oauth2/callback" do
     it "handles successful callback and redirects" do
-      session = { gateway_state: "test_gateway_state", origin_state: "test_origin_state" }
+      session = {gateway_state: "test_gateway_state", origin_state: "test_origin_state"}
       expect_any_instance_of(DrivePlug::App).to receive(:session).at_least(:once).and_return(session)
 
       mock_token = instance_double(
@@ -74,15 +73,15 @@ RSpec.describe DrivePlug::App, "OAuth2" do
         to_hash: {
           "access_token" => "test_token",
           "expires_at" => 3600,
-          "token_type" => "Bearer",
-        },
+          "token_type" => "Bearer"
+        }
       )
       mock_auth_code = instance_double("OAuth2::Strategy::AuthCode")
       expect(mock_oauth_client).to receive(:auth_code).at_least(:once).and_return(mock_auth_code)
       expect(mock_oauth_client.auth_code).to receive(:get_token).and_return(mock_token)
       expect(mock_kms).to receive(:encrypt).and_return("encrypted_token")
 
-      get "/oauth2/callback", { code: "test_code", state: "test_gateway_state" }
+      get "/oauth2/callback", {code: "test_code", state: "test_gateway_state"}
 
       expect(last_response).to be_redirect
       expect(last_response.location).to include(DrivePlug::ORIGIN_REDIRECT_URI)
@@ -90,10 +89,10 @@ RSpec.describe DrivePlug::App, "OAuth2" do
     end
 
     it "returns an error for invalid state" do
-      session = { gateway_state: "correct_state", origin_state: "test_origin_state" }
+      session = {gateway_state: "correct_state", origin_state: "test_origin_state"}
       expect_any_instance_of(DrivePlug::App).to receive(:session).at_least(:once).and_return(session)
 
-      get "/oauth2/callback", { code: "test_code", state: "wrong_state" }
+      get "/oauth2/callback", {code: "test_code", state: "wrong_state"}
 
       expect(last_response.status).to eq(400)
       expect(JSON.parse(last_response.body)["message"]).to eq("Invalid state parameter.")
@@ -106,20 +105,20 @@ RSpec.describe DrivePlug::App, "OAuth2" do
     context "with grant_type authorization_code" do
       it "exchanges authorization code for tokens" do
         expect(mock_kms).to \
-          receive(:decrypt).
-            with("encrypted_auth_code").
-            and_return('{"access_token":"test_access_token","refresh_token":"test_refresh_token","expires_at":0,"token_type":"Bearer"}')
+          receive(:decrypt)
+          .with("encrypted_auth_code")
+          .and_return('{"access_token":"test_access_token","refresh_token":"test_refresh_token","expires_at":0,"token_type":"Bearer"}')
         expect(mock_kms).to \
-          receive(:encrypt).
-            with("test_refresh_token").
-            and_return("encrypted_refresh_token")
+          receive(:encrypt)
+          .with("test_refresh_token")
+          .and_return("encrypted_refresh_token")
 
         post "/oauth2/token", {
           grant_type: "authorization_code",
           code: "encrypted_auth_code",
           client_id: DrivePlug::ORIGIN_CLIENT_ID,
           client_secret: DrivePlug::ORIGIN_CLIENT_SECRET,
-          redirect_uri: DrivePlug::ORIGIN_REDIRECT_URI,
+          redirect_uri: DrivePlug::ORIGIN_REDIRECT_URI
         }
 
         expect(last_response).to be_ok
@@ -135,30 +134,30 @@ RSpec.describe DrivePlug::App, "OAuth2" do
           "access_token" => "new_access_token",
           "refresh_token" => "new_refresh_token",
           "expires_at" => Time.now.to_i + 3600,
-          "token_type" => "Bearer",
+          "token_type" => "Bearer"
         })
         expect(mock_kms).to \
-          receive(:decrypt).
-            with("encrypted_refresh_token").
-            and_return("decrypted_refresh_token")
+          receive(:decrypt)
+          .with("encrypted_refresh_token")
+          .and_return("decrypted_refresh_token")
         expect(mock_oauth_client).to \
-          receive(:get_token).
-            with(grant_type: "refresh_token", refresh_token: "decrypted_refresh_token").
-            and_return(google_token)
+          receive(:get_token)
+          .with(grant_type: "refresh_token", refresh_token: "decrypted_refresh_token")
+          .and_return(google_token)
         expect(mock_kms).to \
-          receive(:encrypt).
-            with(google_token.to_hash.to_json).
-            and_return("new_encrypted_token")
+          receive(:encrypt)
+          .with(google_token.to_hash.to_json)
+          .and_return("new_encrypted_token")
         expect(mock_kms).to \
-          receive(:encrypt).
-            with("new_refresh_token").
-            and_return("new_encrypted_refresh_token")
+          receive(:encrypt)
+          .with("new_refresh_token")
+          .and_return("new_encrypted_refresh_token")
 
         post "/oauth2/token", {
           grant_type: "refresh_token",
           refresh_token: "encrypted_refresh_token",
           client_id: DrivePlug::ORIGIN_CLIENT_ID,
-          client_secret: DrivePlug::ORIGIN_CLIENT_SECRET,
+          client_secret: DrivePlug::ORIGIN_CLIENT_SECRET
         }
 
         expect(last_response).to be_ok
@@ -174,7 +173,7 @@ RSpec.describe DrivePlug::App, "OAuth2" do
         code: "test_code",
         client_id: "invalid_client_id",
         client_secret: "invalid_client_secret",
-        redirect_uri: DrivePlug::ORIGIN_REDIRECT_URI,
+        redirect_uri: DrivePlug::ORIGIN_REDIRECT_URI
       }
 
       expect(last_response.status).to eq(401)

@@ -12,12 +12,12 @@ module DrivePlug
       abstract!
 
       sig { abstract.params(plaintext: String).returns(String) }
-
-      def encrypt(plaintext); end
+      def encrypt(plaintext)
+      end
 
       sig { abstract.params(ciphertext: String).returns(String) }
-
-      def decrypt(ciphertext); end
+      def decrypt(ciphertext)
+      end
     end
   end
 end

@@ -8,7 +8,6 @@ module DrivePlug
   extend T::Sig
 
   sig { params(name: String).returns(String) }
-
   def self.require_env(name)
     ENV[name] || abort("Required environment variable: #{name}")
   end
@@ -20,8 +19,10 @@ module DrivePlug
   GOOGLE_CLIENT_ID = T.let(require_env("GOOGLE_CLIENT_ID"), String)
   GOOGLE_CLIENT_SECRET = T.let(require_env("GOOGLE_CLIENT_SECRET"), String)
   GDRIVE_FOLDER_ID = T.let(require_env("GDRIVE_FOLDER_ID"), String)
-  JOURNAL_DOCUMENT_NAME = T.let(ENV["JOURNAL_DOCUMENT_NAME"] || "Journal", String)
+  MEMORY_DOCUMENT_NAME = T.let(ENV["MEMORY_DOCUMENT_NAME"] || "Memory", String)
+  MEETINGS_DOCUMENT_NAME = T.let(ENV["MEETINGS_DOCUMENT_NAME"] || "Meetings", String)
   SESSION_SECRET = T.let(ENV["SESSION_SECRET"] || SecureRandom.hex(64), String)
+  INSECURE_LOG_AUTH_TOKENS = T.let(ENV["INSECURE_LOG_AUTH_TOKENS"] == "true", T::Boolean)
 
   KMS_TYPE = T.let(require_env("KMS_TYPE"), String)
 

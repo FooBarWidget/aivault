@@ -44,15 +44,10 @@ What sets our approach apart from other solutions:
 The approach towards using DrivePlug is that:
 
 - Agents decide, through a list of filenames, what documents to read to write.
-- Agents read and write entire documents, not parts of them. There is one exception: the journal.
+- Agents read and write entire documents, not parts of them. There is one exception: the main memory.
 
-### Journal
+### Main memory
 
-The journal records the core of what the agent has learned or is planning. It's supposed to be append-only, so that we can check how the agent's core memory and plans have changed over time. Each journal entry is also supposed to be entirely standalone and complete, which means that reading the latest journal entry is enough to be fully up-to-date.
+The main memory is the core of what the agent has learned or is planning. This document is a bit different from other files in Google Drive: it's an append-only document. When agents write to memory, a new entry is added, so that we can check how the memory has changed over time. Agents can only read the latest revision of the memory.
 
-Thus, the journal is a bit different from other files in Google Drive:
-
-- Agents are only supposed to read the latest entry, not the entire document.
-- Agents are only supposed to append entries, never change existing entries.
-
-DrivePlug provides a special journal API for this pattern so that they can never falsify their core history.
+DrivePlug provides a special API for this pattern so that they can never falsify their memory history.

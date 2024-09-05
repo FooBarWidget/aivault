@@ -20,7 +20,7 @@ group :development do
 end
 
 group :development, :test do
-  gem "rufo"
+  gem "standard"
   gem "rspec"
   gem "rack-test"
 end
