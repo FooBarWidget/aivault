@@ -2,9 +2,12 @@
 # typed: true
 
 require "rspec"
+require "rspec/sorbet"
 require "rack/test"
 require "sorbet-runtime"
 require_relative "../app/app"
+
+RSpec::Sorbet.allow_instance_doubles!
 
 # Workaround for https://github.com/sorbet/sorbet/issues/8143
 if false

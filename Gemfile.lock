@@ -185,6 +185,8 @@ GEM
     rspec-mocks (3.13.1)
       diff-lcs (>= 1.2.0, < 2.0)
       rspec-support (~> 3.13.0)
+    rspec-sorbet (1.9.2)
+      sorbet-runtime
     rspec-support (3.13.1)
     rubocop (1.65.1)
       json (~> 2.3)
@@ -282,6 +284,7 @@ DEPENDENCIES
   rack-test
   rbi (~> 0.1.14)
   rspec
+  rspec-sorbet
   sinatra
   sorbet
   sorbet-rspec!

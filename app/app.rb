@@ -162,7 +162,7 @@ module DrivePlug
           origin_auth_token = {
             access_token: new_encrypted_token,
             refresh_token: new_encrypted_refresh_token,
-            expires_in: Helpers.calculate_oauth2_token_expires_in(google_token.expires_in),
+            expires_in: Helpers.calculate_oauth2_token_expires_in(google_token),
             token_type: "Bearer"
           }
         rescue OAuth2::Error => e
@@ -206,6 +206,66 @@ module DrivePlug
     post "/memory.md" do
       T.bind(self, App)
       add_journal_entry(MEMORY_DOCUMENT_NAME)
+    end
+
+    get "/files.json" do
+      T.bind(self, App)
+      content_type :json
+
+      drive_service = get_drive_service
+      files = drive_service.list_files(
+        q: "'#{GDRIVE_FOLDER_ID}' in parents and trashed = false",
+        fields: "files(id, name, mimeType)"
+      ).files
+
+      files.find_all do |file|
+        # Can't download files managed by external apps
+        !file.mime_type.start_with?("application/vnd.google-apps.drive-sdk.")
+      end.map do |file|
+        {
+          name: file.name,
+          id: file.id,
+          mimeType: Helpers::GOOGLE_DOC_MIME_TYPE_EXPORT_CONVERSIONS.fetch(file.mime_type, file.mime_type)
+        }
+      end.to_json
+    end
+
+    get "/files/:id" do |id|
+      T.bind(self, App)
+
+      drive_service = get_drive_service
+      begin
+        file = drive_service.get_file(id, fields: "mimeType")
+
+        if (new_mime_type = Helpers::GOOGLE_DOC_MIME_TYPE_EXPORT_CONVERSIONS[file.mime_type])
+          content = drive_service.export_file(id, new_mime_type)
+          content_type new_mime_type
+          content
+        else
+          content = drive_service.get_file(id, download_dest: StringIO.new)
+          content_type file.mime_type
+          content.string
+        end
+      rescue Google::Apis::ClientError => e
+        case e.status_code
+        when 404
+          status 404
+          content_type :json
+          {status: "error", message: "File not found."}.to_json
+        when 403
+          status 403
+          content_type :json
+          {status: "error", message: "Access denied to this file."}.to_json
+        else
+          status 500
+          content_type :json
+          {status: "error", message: "Error accessing file: #{e.message}"}.to_json
+        end
+      rescue Google::Apis::Error => e
+        status 500
+        content_type :json
+        {status: "error", message: "Error accessing file: #{e.message}"}.to_json
+      end
     end
 
     sig { returns(OAuth2::Client) }
