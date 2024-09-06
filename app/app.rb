@@ -213,18 +213,15 @@ module DrivePlug
       content_type :json
 
       drive_service = get_drive_service
-      files = drive_service.list_files(
-        q: "'#{GDRIVE_FOLDER_ID}' in parents and trashed = false",
-        fields: "files(id, name, mimeType)"
-      ).files
-
-      files.find_all do |file|
+      Helpers.list_files_recursively(drive_service, GDRIVE_FOLDER_ID).find_all do |file|
         # Can't download files managed by external apps
-        !file.mime_type.start_with?("application/vnd.google-apps.drive-sdk.")
+        !file.mime_type.start_with?("application/vnd.google-apps.drive-sdk.") &&
+          file.mime_type != "application/vnd.google-apps.folder"
       end.map do |file|
         {
           name: file.name,
           id: file.id,
+          parents: file.parents,
           mimeType: Helpers::GOOGLE_DOC_MIME_TYPE_EXPORT_CONVERSIONS.fetch(file.mime_type, file.mime_type)
         }
       end.to_json
@@ -236,6 +233,12 @@ module DrivePlug
       drive_service = get_drive_service
       begin
         file = drive_service.get_file(id, fields: "mimeType")
+        hierarchy = Helpers.get_file_hierarchy(drive_service, file)
+        if hierarchy.none? { |entry| entry.id == GDRIVE_FOLDER_ID }
+          status 403
+          content_type :json
+          return {status: "error", message: "Access denied to this file."}.to_json
+        end
 
         if (new_mime_type = Helpers::GOOGLE_DOC_MIME_TYPE_EXPORT_CONVERSIONS[file.mime_type])
           content = drive_service.export_file(id, new_mime_type)
@@ -314,7 +317,7 @@ module DrivePlug
 
       drive_service = get_drive_service
       doc = drive_service.list_files(
-        q: "name = '#{document_name}' and mimeType = 'application/vnd.google-apps.document' and '#{GDRIVE_FOLDER_ID}' in parents and trashed = false",
+        q: "name = '#{escape document_name}' and mimeType = 'application/vnd.google-apps.document' and '#{escape GDRIVE_FOLDER_ID}' in parents and trashed = false",
         fields: "files(id, name)"
       ).files.first
       if doc.nil?
@@ -346,7 +349,7 @@ module DrivePlug
 
       drive_service = get_drive_service
       doc = drive_service.list_files(
-        q: "name = '#{document_name}' and mimeType = 'application/vnd.google-apps.document' and '#{GDRIVE_FOLDER_ID}' in parents and trashed = false",
+        q: "name = '#{escape document_name}' and mimeType = 'application/vnd.google-apps.document' and '#{escape GDRIVE_FOLDER_ID}' in parents and trashed = false",
         fields: "files(id, name)"
       ).files.first
 
