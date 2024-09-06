@@ -101,14 +101,14 @@ module DrivePlug
         return {status: "error", message: "Invalid state parameter."}.to_json
       end
 
-      google_token = get_oauth_client.auth_code.get_token(
+      google_creds = get_oauth_client.auth_code.get_token(
         google_code,
         redirect_uri: GATEWAY_REDIRECT_URI
       )
-      Helpers.log_auth_token(env, "Google", google_token.to_hash)
-      encrypted_token = get_kms.encrypt(google_token.to_hash.to_json)
+      Helpers.log_credentials(env, "Google", google_creds.to_hash)
+      encrypted_google_creds = get_kms.encrypt(google_creds.to_hash.to_json)
       redirect Helpers.extend_redirect_uri(ORIGIN_REDIRECT_URI,
-        gateway_code: encrypted_token,
+        gateway_code: encrypted_google_creds,
         origin_state: origin_state)
     end
 
@@ -137,14 +137,13 @@ module DrivePlug
           return {status: "error", message: "Invalid redirect URI."}.to_json
         end
 
-        encrypted_token = params[:code]
-        google_token = OAuth2::AccessToken.from_hash(get_oauth_client, JSON.parse(get_kms.decrypt(encrypted_token)))
-        refresh_token = get_kms.encrypt(google_token.refresh_token.to_s)
+        encrypted_google_creds = params[:code]
+        google_creds = OAuth2::AccessToken.from_hash(get_oauth_client, JSON.parse(get_kms.decrypt(encrypted_google_creds)))
 
-        origin_auth_token = {
-          access_token: encrypted_token,
-          refresh_token: refresh_token,
-          expires_in: Helpers.calculate_oauth2_token_expires_in(google_token),
+        origin_creds = {
+          access_token: encrypted_google_creds,
+          refresh_token: get_kms.encrypt(google_creds.refresh_token.to_s),
+          expires_in: Helpers.calculate_creds_expires_in(google_creds),
           token_type: "Bearer"
         }
       when "refresh_token"
@@ -152,17 +151,18 @@ module DrivePlug
         decrypted_refresh_token = get_kms.decrypt(encrypted_refresh_token)
 
         begin
-          google_token = get_oauth_client.get_token(
+          google_creds = get_oauth_client.get_token(
             grant_type: "refresh_token",
             refresh_token: decrypted_refresh_token
           )
-          new_encrypted_token = get_kms.encrypt(google_token.to_hash.to_json)
-          new_encrypted_refresh_token = get_kms.encrypt(google_token.refresh_token)
+          google_creds.refresh_token ||= decrypted_refresh_token
+          new_encrypted_google_creds = get_kms.encrypt(google_creds.to_hash.to_json)
+          new_encrypted_refresh_token = get_kms.encrypt(google_creds.refresh_token)
 
-          origin_auth_token = {
-            access_token: new_encrypted_token,
+          origin_creds = {
+            access_token: new_encrypted_google_creds,
             refresh_token: new_encrypted_refresh_token,
-            expires_in: Helpers.calculate_oauth2_token_expires_in(google_token),
+            expires_in: Helpers.calculate_creds_expires_in(google_creds),
             token_type: "Bearer"
           }
         rescue OAuth2::Error => e
@@ -177,8 +177,8 @@ module DrivePlug
         raise "Bug: invalid grant type"
       end
 
-      Helpers.log_auth_token(env, "Origin", origin_auth_token)
-      origin_auth_token.to_json
+      Helpers.log_credentials(env, "Origin", origin_creds)
+      origin_creds.to_json
     end
 
     get "/user.json" do
@@ -213,16 +213,15 @@ module DrivePlug
       content_type :json
 
       drive_service = get_drive_service
-      Helpers.list_files_recursively(drive_service, GDRIVE_FOLDER_ID).find_all do |file|
+      Helpers.list_files_recursively(drive_service, GDRIVE_FOLDER_ID).find_all do |entry|
         # Can't download files managed by external apps
-        !file.mime_type.start_with?("application/vnd.google-apps.drive-sdk.") &&
-          file.mime_type != "application/vnd.google-apps.folder"
-      end.map do |file|
+        !entry.file.mime_type.start_with?("application/vnd.google-apps.drive-sdk.") &&
+          entry.file.mime_type != "application/vnd.google-apps.folder"
+      end.map do |entry|
         {
-          name: file.name,
-          id: file.id,
-          parents: file.parents,
-          mimeType: Helpers::GOOGLE_DOC_MIME_TYPE_EXPORT_CONVERSIONS.fetch(file.mime_type, file.mime_type)
+          name: entry.path,
+          id: entry.file.id,
+          mimeType: Helpers::GOOGLE_DOC_MIME_TYPE_EXPORT_CONVERSIONS.fetch(entry.file.mime_type, entry.file.mime_type)
         }
       end.to_json
     end
@@ -232,9 +231,8 @@ module DrivePlug
 
       drive_service = get_drive_service
       begin
-        file = drive_service.get_file(id, fields: "mimeType")
-        hierarchy = Helpers.get_file_hierarchy(drive_service, file)
-        if hierarchy.none? { |entry| entry.id == GDRIVE_FOLDER_ID }
+        file = drive_service.get_file(id, fields: "parents, mimeType")
+        if !Helpers.file_under_folder?(drive_service, file, GDRIVE_FOLDER_ID)
           status 403
           content_type :json
           return {status: "error", message: "Access denied to this file."}.to_json
@@ -292,20 +290,19 @@ module DrivePlug
         halt 401, {status: "error", message: "Missing Authorization header"}.to_json
       end
 
-      encrypted_token = auth_header.split(" ").last
-      decrypted_token = JSON.parse(get_kms.decrypt(encrypted_token))
-      Helpers.log_auth_token(env, "Origin", decrypted_token)
-      oauth_client = get_oauth_client
-      google_token = T.cast(OAuth2::AccessToken.from_hash(oauth_client, decrypted_token), OAuth2::AccessToken)
+      encrypted_origin_creds = auth_header.split(" ").last
+      origin_creds = JSON.parse(get_kms.decrypt(encrypted_origin_creds))
+      Helpers.log_credentials(env, "Origin", origin_creds)
+      google_creds = OAuth2::AccessToken.from_hash(get_oauth_client, origin_creds)
 
       drive_service = Google::Apis::DriveV3::DriveService.new
       drive_service.authorization = Google::Auth::UserRefreshCredentials.new(
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
         scope: "https://www.googleapis.com/auth/drive",
-        access_token: google_token.token,
-        refresh_token: google_token.refresh_token,
-        expires_at: google_token.expires_at
+        access_token: google_creds.token,
+        refresh_token: google_creds.refresh_token,
+        expires_at: google_creds.expires_at
       )
 
       drive_service

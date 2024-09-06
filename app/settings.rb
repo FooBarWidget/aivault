@@ -22,7 +22,7 @@ module DrivePlug
   MEMORY_DOCUMENT_NAME = T.let(ENV["MEMORY_DOCUMENT_NAME"] || "Memory", String)
   MEETINGS_DOCUMENT_NAME = T.let(ENV["MEETINGS_DOCUMENT_NAME"] || "Meetings", String)
   SESSION_SECRET = T.let(ENV["SESSION_SECRET"] || SecureRandom.hex(64), String)
-  INSECURE_LOG_AUTH_TOKENS = T.let(ENV["INSECURE_LOG_AUTH_TOKENS"] == "true", T::Boolean)
+  INSECURE_LOG_CREDENTIALS = T.let(ENV["INSECURE_LOG_CREDENTIALS"] == "true", T::Boolean)
 
   KMS_TYPE = T.let(require_env("KMS_TYPE"), String)
 
