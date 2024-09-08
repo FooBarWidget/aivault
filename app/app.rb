@@ -219,8 +219,8 @@ module DrivePlug
           entry.file.mime_type != "application/vnd.google-apps.folder"
       end.map do |entry|
         {
-          name: entry.path,
           id: entry.file.id,
+          path: entry.path,
           mimeType: Helpers::GOOGLE_DOC_MIME_TYPE_EXPORT_CONVERSIONS.fetch(entry.file.mime_type, entry.file.mime_type)
         }
       end.to_json

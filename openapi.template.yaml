@@ -162,19 +162,13 @@ components:
     FileListEntry:
       type: object
       required:
-        - name
         - id
-        - parents
+        - path
         - mimeType
       properties:
-        name:
-          type: string
         id:
           type: string
-        parents:
-          type: array
-          description: List of parent folder IDs
-          items:
-            type: string
+        path:
+          type: string
         mimeType:
           type: string
